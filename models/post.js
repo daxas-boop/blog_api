@@ -10,4 +10,4 @@ const PostInstance = new Schema({
   created_by: { type: Schema.Types.ObjectId, ref: 'User' },
 });
 
-exports.mongoose.model('Post', PostInstance);
+module.exports = mongoose.model('Post', PostInstance);

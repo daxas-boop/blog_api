@@ -9,7 +9,4 @@ mongoose.connection.on('connected', () => {
   console.log('Database connected');
 });
 
-mongoose.connection.on(
-  'error',
-  console.error.bind(console, 'MongoDB connection error:')
-);
+mongoose.connection.on('error', console.error.bind(console, 'MongoDB connection error:'));

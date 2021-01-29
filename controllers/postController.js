@@ -1,5 +1,6 @@
-const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Post = require('../models/post');
+const { validateCreatePost } = require('../lib/validators');
 
 exports.viewAllPosts = (req, res, next) => {
   Post.find({})
@@ -8,104 +9,69 @@ exports.viewAllPosts = (req, res, next) => {
       if (err) {
         return next(err);
       }
-      res.json({ posts });
+      res.status(200).json({ success: true, posts });
     });
 };
 
 exports.viewPost = (req, res, next) => {
-  Post.findById(req.params.postId)
+  if (!mongoose.Types.ObjectId.isValid(req.params.postId)) {
+    return res.status(400).json({ success: false, error: 'Invalid ID' });
+  }
+  Post.findOne({ _id: req.params.postId })
     .populate('created_by')
     .exec((err, post) => {
       if (err) {
         return next(err);
       }
-      res.json({ post });
+      if (!post) {
+        return res.status(404).json({ success: false, error: 'Post not found' });
+      }
+      res.status(200).json({ success: true, post });
     });
 };
 
 exports.createPost = [
-  body('title')
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage('The title cannot be empty.')
-    .escape(),
-  body('body')
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage('The body cannot be empty.')
-    .escape(),
+  validateCreatePost(),
   (req, res, next) => {
-    const errors = validationResult(req);
+    const newPost = new Post({
+      title: req.body.title,
+      body: req.body.body,
+      created_by: req.body.created_by,
+    });
 
-    if (!errors.isEmpty()) {
-      // Error
-      res.status(400).json({
-        postSent: {
-          title: req.body.title,
-          body: req.body.body,
-        },
-        errors: errors.array(),
+    newPost.save((err, post) => {
+      if (err) {
+        return next(err);
+      }
+      res.status(201).json({
+        success: true,
+        postCreated: post,
       });
-    } else {
-      // Success
-      const newPost = new Post({
-        title: req.body.title,
-        body: req.body.body,
-        created_by: req.body.created_by,
-      });
-
-      newPost.save((err) => {
-        if (err) {
-          return next(err);
-        }
-        res.status(201).json({
-          message: 'Post sucessfully created.',
-        });
-      });
-    }
+    });
   },
 ];
 
 exports.editPost = [
-  body('title')
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage('The title cannot be empty.')
-    .escape(),
-  body('body')
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage('The body cannot be empty.')
-    .escape(),
+  validateCreatePost(),
   (req, res, next) => {
-    const errors = validationResult(req);
+    const editedPost = new Post({
+      title: req.body.title,
+      body: req.body.body,
+      published: req.body.published,
+      created_at: req.body.created_at,
+      created_by: req.body.created_by,
+      _id: req.params.postId,
+    });
 
-    if (!errors.isEmpty()) {
-      res.status(400).json({
-        postSent: {
-          title: req.body.title,
-          body: req.body.body,
-        },
-        errors: errors.array(),
+    Post.findByIdAndUpdate(req.params.postId, editedPost, (err, post) => {
+      if (err) {
+        return next(err);
+      }
+      res.status(200).json({
+        success: true,
+        postEdited: post,
       });
-    } else {
-      const editedPost = new Post({
-        title: req.body.title,
-        body: req.body.body,
-        published: req.body.published,
-        created_at: req.body.created_at,
-        created_by: req.body.created_by,
-      });
-
-      Post.findByIdAndUpdate(req.params.postId, editedPost, (err) => {
-        if (err) {
-          return next(err);
-        }
-        res.status(200).json({
-          message: 'Post sucessfully updated.',
-        });
-      });
-    }
+    });
   },
 ];
 
@@ -115,7 +81,7 @@ exports.deletePost = (req, res, next) => {
       return next(err);
     }
     res.status(200).json({
-      message: 'Post sucessfully deleted.',
+      success: true,
     });
   });
 };
